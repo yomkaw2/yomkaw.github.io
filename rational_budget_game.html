@@ -1,0 +1,140 @@
+<h2 class="sr-only">Гра: розподіли умовний місячний бюджет 20000 грн по чотирьох категоріях і дізнайся, наскільки раціональний твій розподіл</h2>
+
+<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1rem;">
+  <span style="font-size:14px; color:var(--text-secondary);">Умовний дохід за місяць</span>
+  <span style="font-size:20px; font-weight:500;">20 000 грн</span>
+</div>
+
+<div id="sliders"></div>
+
+<div style="display:flex; height:14px; border-radius:7px; overflow:hidden; margin:1.25rem 0 0.5rem; background:var(--surface-1);" id="bar"></div>
+
+<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-secondary); margin-bottom:1.25rem;">
+  <span>Розподілено: <span id="total" style="font-weight:500;">0</span>%</span>
+  <span id="total-hint"></span>
+</div>
+
+<button id="check-btn" style="width:100%;">Перевірити розподіл</button>
+
+<div id="result" style="margin-top:1.25rem; display:none;"></div>
+
+<script>
+const cats = [
+  { id:'needs', label:'Потреби (житло, їжа, комунальні)', min:45, max:55, color:'c-blue', value:35 },
+  { id:'save', label:'Заощадження та інвестиції', min:15, max:25, color:'c-teal', value:15 },
+  { id:'wants', label:'Бажання та розваги', min:20, max:30, color:'c-coral', value:35 },
+  { id:'reserve', label:'Резерв на непередбачені витрати', min:5, max:15, color:'c-amber', value:15 }
+];
+
+const slidersEl = document.getElementById('sliders');
+cats.forEach(function(c){
+  const row = document.createElement('div');
+  row.style.marginBottom = '14px';
+  row.innerHTML =
+    '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
+      '<label for="s-'+c.id+'" style="font-size:14px;">'+c.label+'</label>' +
+      '<span id="v-'+c.id+'" style="font-size:14px; font-weight:500; min-width:34px; text-align:right;">'+c.value+'%</span>' +
+    '</div>' +
+    '<input type="range" id="s-'+c.id+'" min="0" max="100" step="1" value="'+c.value+'" style="width:100%;">';
+  slidersEl.appendChild(row);
+});
+
+function renderBar(){
+  const total = cats.reduce(function(s,c){return s+c.value;},0);
+  const barEl = document.getElementById('bar');
+  barEl.innerHTML = '';
+  cats.forEach(function(c){
+    const seg = document.createElement('div');
+    const pct = total > 0 ? (c.value/Math.max(total,100))*100 : 0;
+    seg.className = c.color;
+    seg.style.width = pct + '%';
+    seg.style.background = 'var(--fill-accent)';
+    barEl.appendChild(seg);
+  });
+  document.getElementById('total').textContent = total;
+  const hint = document.getElementById('total-hint');
+  if(total === 100){
+    hint.textContent = 'Рівно 100%';
+    hint.style.color = 'var(--text-success)';
+  } else {
+    hint.textContent = total > 100 ? 'Забагато, зменш повзунки' : 'Розподіль усі 100%';
+    hint.style.color = 'var(--text-danger)';
+  }
+}
+
+const colorMap = { needs:'#378ADD', save:'#1D9E75', wants:'#D85A30', reserve:'#EF9F27' };
+function renderBarColored(){
+  const total = cats.reduce(function(s,c){return s+c.value;},0);
+  const barEl = document.getElementById('bar');
+  barEl.innerHTML = '';
+  const denom = Math.max(total,100);
+  cats.forEach(function(c){
+    const seg = document.createElement('div');
+    seg.style.width = (c.value/denom*100) + '%';
+    seg.style.background = colorMap[c.id];
+    barEl.appendChild(seg);
+  });
+  document.getElementById('total').textContent = total;
+  const hint = document.getElementById('total-hint');
+  if(total === 100){
+    hint.textContent = 'Рівно 100%';
+    hint.style.color = 'var(--text-success)';
+  } else {
+    hint.textContent = total > 100 ? 'Забагато, зменш повзунки' : 'Розподіль усі 100%';
+    hint.style.color = 'var(--text-danger)';
+  }
+}
+
+cats.forEach(function(c){
+  const input = document.getElementById('s-'+c.id);
+  input.addEventListener('input', function(){
+    c.value = parseInt(input.value, 10);
+    document.getElementById('v-'+c.id).textContent = c.value + '%';
+    renderBarColored();
+    document.getElementById('result').style.display = 'none';
+  });
+});
+renderBarColored();
+
+document.getElementById('check-btn').addEventListener('click', function(){
+  const total = cats.reduce(function(s,c){return s+c.value;},0);
+  const resultEl = document.getElementById('result');
+  if(total !== 100){
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<p style="font-size:13px; color:var(--text-danger); margin:0;">Спочатку розподіли рівно 100% доходу.</p>';
+    return;
+  }
+  let inRange = 0;
+  const notes = [];
+  cats.forEach(function(c){
+    if(c.value >= c.min && c.value <= c.max){
+      inRange++;
+    } else if(c.value < c.min){
+      notes.push('«'+c.label+'» занижено (менше '+c.min+'%)');
+    } else {
+      notes.push('«'+c.label+'» завищено (більше '+c.max+'%)');
+    }
+  });
+  const score = Math.round(inRange/cats.length*100);
+  let verdict, verdictColor;
+  if(score >= 100){ verdict = 'Відмінний, раціональний розподіл'; verdictColor='var(--text-success)'; }
+  else if(score >= 50){ verdict = 'Непогано, але є що покращити'; verdictColor='var(--text-warning)'; }
+  else { verdict = 'Розподіл нераціональний'; verdictColor='var(--text-danger)'; }
+
+  let html = '<div style="background:var(--surface-1); border-radius:12px; padding:1rem 1.25rem;">';
+  html += '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">';
+  html += '<span style="font-size:15px; font-weight:500; color:'+verdictColor+';">'+verdict+'</span>';
+  html += '<span style="font-size:13px; color:var(--text-secondary);">'+score+'% категорій у нормі</span>';
+  html += '</div>';
+  if(notes.length){
+    html += '<ul style="margin:0; padding-left:1.1rem; font-size:13px; color:var(--text-secondary);">';
+    notes.forEach(function(n){ html += '<li style="margin-bottom:4px;">'+n+'</li>'; });
+    html += '</ul>';
+  } else {
+    html += '<p style="font-size:13px; color:var(--text-secondary); margin:0;">Кожна категорія в межах рекомендованого діапазону.</p>';
+  }
+  html += '</div>';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = html;
+});
+</script>
